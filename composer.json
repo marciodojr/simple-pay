@@ -1,0 +1,29 @@
+{
+    "name": "marciodojr/simple-pay",
+    "description": "Hub para utilização do moipv2 em múltiplos projetos",
+    "type": "project",
+    "require": {
+        "moip/moip-sdk-php": "^3.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^7.1"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Márcio Dias",
+            "email": "marciojr91@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "scripts": {
+        "test": [
+            "phpunit"
+        ]
+    },
+    "autoload": {
+        "psr-4": {
+            "Mdojr\\SimplePay\\": "src/"
+        }
+    }
+}
