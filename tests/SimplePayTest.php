@@ -17,6 +17,11 @@ use Mdojr\SimplePay\Customer\SimpleOrder;
 use Mdojr\SimplePay\Payment\Holder;
 use Mdojr\SimplePay\Payment\SimpleCreditCardPayment;
 use Mdojr\SimplePay\Payment\SimpleBoletoPayment;
+use Moip\Resource\Payment;
+use Moip\Resource\Orders;
+use Moip\Resource\Refund;
+use Moip\Resource\Customer;
+use Mdojr\SimplePay\Util\BankAccount;
 
 class SimplePayTest extends TestCase
 {
@@ -32,7 +37,7 @@ class SimplePayTest extends TestCase
         $sc = $this->getSimpleCustomerInstance();
         $c = $sp->createCustomer($sc);
 
-        $this->assertTrue(strpos($c, 'CUS-') !== false);
+        $this->assertTrue(strpos($c->getId(), 'CUS-') !== false);
     }
 
     public function testCanCreateMoipOrder()
@@ -40,7 +45,7 @@ class SimplePayTest extends TestCase
         $so = $this->getSimpleOrderInstance();
         $sp = $this->getInstance();
         $mo = $sp->createOrder($so);
-        $this->assertTrue(strpos($mo, 'ORD-') !== false);
+        $this->assertTrue(strpos($mo->getId(), 'ORD-') !== false);
     }
 
     public function testCanCreateMoipPaymentWithCreditCard()
@@ -50,7 +55,46 @@ class SimplePayTest extends TestCase
         $scp = $this->getSimpleCreditCardPayment();
         
         $pc = $sp->createPaymentWithCreditCard($so, $scp);
-        $this->assertTrue(strpos($pc, 'PAY-') !== false);
+        $this->assertTrue(strpos($pc->getId(), 'PAY-') !== false);
+    }
+
+    public function testCanRetrieveCustomer()
+    {
+        $sp = $this->getInstance();
+        $sc = $this->getSimpleCustomerInstance();
+        $c = $sp->createCustomer($sc);
+
+        $cId = $c->getId();
+        $cr = $sp->retrieveCustomer($cId);
+        $this->assertInstanceOf(Customer::class, $cr);
+        $this->assertEquals($cr->getId(), $cId);
+    }
+
+    public function testCanRetrieveOrder()
+    {
+        $so = $this->getSimpleOrderInstance();
+        $sp = $this->getInstance();
+        $mo = $sp->createOrder($so);
+        
+        $oid = $mo->getId();
+        $mor = $sp->retrieveOrder($oid);
+
+        $this->assertInstanceOf(Orders::class, $mor);
+        $this->assertEquals($mor->getId(), $oid);
+    }
+
+    public function testCanRetrivePayment()
+    {
+        $sp = $this->getInstance();
+        $so = $this->getSimpleOrderInstance();
+        $scp = $this->getSimpleCreditCardPayment();
+        
+        $pc = $sp->createPaymentWithCreditCard($so, $scp);
+        $pId = $pc->getId();
+        $pr = $sp->retrievePayment($pId);
+
+        $this->assertInstanceOf(Payment::class, $pr);
+        $this->assertEquals($pr->getId(), $pId);
     }
 
     public function testCanCreateMoipPaymentWithBoleto()
@@ -60,7 +104,59 @@ class SimplePayTest extends TestCase
         $sbp = $this->getSimpleBoletoPayment();
         
         $pb = $sp->createPaymentWithBoleto($so, $sbp);
-        $this->assertTrue(strpos($pb, 'PAY-') !== false);
+        $this->assertTrue(strpos($pb->getId(), 'PAY-') !== false);
+    }
+
+    public function testCanRefundWithCreditCard()
+    {
+        $sp = $this->getInstance();
+        $so = $this->getSimpleOrderInstance();
+        $scp = $this->getSimpleCreditCardPayment();
+        $pc = $sp->createPaymentWithCreditCard($so, $scp);
+
+        $ref = $sp->refundPaymentWithCreditCard($pc->getId());
+        $this->assertInstanceOf(Refund::class, $ref);
+    }
+
+    public function testCanRefundWithBankAccount()
+    {
+        $sp = $this->getInstance();
+        $so = $this->getSimpleOrderInstance();
+        $sbp = $this->getSimpleBoletoPayment();
+        $pb = $sp->createPaymentWithBoleto($so, $sbp);
+
+        $pId = $pb->getId();
+        $ba = $this->getBankAccount();
+        $cId = $pb->getOrder()->getCustomer()->getId();
+        
+        $this->expectException(ValidationException::class);
+        $ref = $sp->refundPaymentWithBankAccount($pId, $ba, $cId);        
+    }
+
+    public function testCanRefundWithBankAccountFromCreditCard()
+    {
+        $sp = $this->getInstance();
+        $so = $this->getSimpleOrderInstance();
+        $scp = $this->getSimpleCreditCardPayment();
+        $pc = $sp->createPaymentWithCreditCard($so, $scp);
+
+        $pId = $pc->getId();
+        $ba = $this->getBankAccount();
+        $cId = $pc->getOrder()->getCustomer()->getId();
+
+        $this->expectException(ValidationException::class);
+        $ref = $sp->refundPaymentWithBankAccount($pId, $ba, $cId);
+    }
+
+    private function getBankAccount()
+    {
+        $bankNumber = '001';
+        $agencyNumber ='0308';
+        $agencyCheckNumber = '5';
+        $accountNumber = '10000';
+        $accountCheckNumber = '10';
+
+        return new BankAccount($bankNumber, $agencyNumber, $agencyCheckNumber, $accountNumber, $accountCheckNumber);
     }
 
     private function getSimpleBoletoPayment()
@@ -74,7 +170,7 @@ class SimplePayTest extends TestCase
 
     private function getSimpleCreditCardPayment()
     {
-        $hash = 'i1naupwpTLrCSXDnigLLTlOgtm+xBWo6iX54V/hSyfBeFv3rvqa1VyQ8/pqWB2JRQX2GhzfGppXFPCmd/zcmMyDSpdnf1GxHQHmVemxu4AZeNxs+TUAbFWsqEWBa6s95N+O4CsErzemYZHDhsjEgJDe17EX9MqgbN3RFzRmZpJqRvqKXw9abze8hZfEuUJjC6ysnKOYkzDBEyQibvGJjCv3T/0Lz9zFruSrWBw+NxWXNZjXSY0KF8MKmW2Gx1XX1znt7K9bYNfhA/QO+oD+v42hxIeyzneeRcOJ/EXLEmWUsHDokevOkBeyeN4nfnET/BatcDmv8dpGXrTPEoxmmGQ==';
+        $hash = 'azkBMZ3SC/MiKZABh4Twyz2G8yT97yqHV3CxaVmQHOzZ+o4xEHP5crhrXuCPBiwKo1MnWqhcbczgLGZ1ov5nZ03kDGylwcO3St70NcBM5NqukPwBqBEMGJ1AZj+KD8H1UPJlEomh9RN/iLdrKCC3t+HS8ypSDyRmxPK5qCHR7ilQx1oYZYAJPcGVi2WuHvfMRshzmprILHxWGbKKlON2CUm4lK5id6YX+WPfEC9ZXMSIXWo8Ox3MPXtCLK6LRz+315ZIxL8gP2JRLSSsutxcuhj75LBImoXmYcX7vtt280BSgDjxEh1ZcBsfESQsW8tnIdIJazAtBEIOYIW+x6NkMw==';
         $holder = $this->getHolder();
         $installmentCount = 3;
         $statementDescriptor = 'Testando pagamento por cartão';

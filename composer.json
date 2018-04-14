@@ -1,7 +1,7 @@
 {
     "name": "marciodojr/simple-pay",
-    "description": "Hub para utilização do moipv2 em múltiplos projetos",
-    "type": "project",
+    "description": "Realiza pagamento simples com a Moip",
+    "type": "library",
     "require": {
         "moip/moip-sdk-php": "^3.1"
     },

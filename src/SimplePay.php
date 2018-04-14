@@ -9,11 +9,13 @@ use Mdojr\SimplePay\Customer\SimpleOrder;
 use Mdojr\SimplePay\Customer\SimplePayment;
 use Moip\Resource\Customer;
 use Moip\Resource\Orders;
+use Moip\Resource\Payment;
 use Moip\Resource\Holder as MoipHolder;
 use Mdojr\SimplePay\Payment\Holder;
 use Mdojr\SimplePay\Payment\SimpleCreditCardPayment;
 use Mdojr\SimplePay\Payment\SimpleBoletoPayment;
-
+use Moip\Resource\BankAccount as  MoipBankAcount;
+use Mdojr\SimplePay\Util\BankAccount;
 
 class SimplePay
 {
@@ -27,7 +29,7 @@ class SimplePay
     }
 
     /**
-     * @todo: pesquisar por um simple customer ($this->namespace, $sc->ownId) antes de criar um novo
+     * @return Moip\Resource\Customer
      */
     public function createCustomer(SimpleCustomer $sc)
     {
@@ -69,15 +71,15 @@ class SimplePay
         
         $mCustomer = $mCustomer->create();
 
-        return $mCustomer->getId();
+        return $mCustomer;
     }
 
     /**
-     * @todo: pesquisar por uma simple order ($this->namespace, $so->ownId) antes de criar uma nova
+     * @return Moip\Resource\Orders
      */
     public function createOrder(SimpleOrder $so)
     {
-        $mCustomerId = $this->createCustomer($so->sc);
+        $mCustomer = $this->createCustomer($so->sc);
 
         $mOrder = $this
             ->moip
@@ -86,26 +88,30 @@ class SimplePay
             ->setShippingAmount($so->shippingAmount)
             ->setAddition($so->addition)
             ->setDiscount($so->discount)
-            ->setCustomerId($mCustomerId);
+            ->setCustomerId($mCustomer->getId());
 
         foreach ($so->items as $item) {
             $mOrder->addItem($item->name, $item->amount, $item->sku, $item->unitPriceInCents);
         }
 
         $mOrder = $mOrder->create();
-        return $mOrder->getId();
+        return $mOrder;
     }
 
+    /**
+     * @return string identificador alfanumérico único
+     */
     private function uniqIdentifier($subnamespace = "")
     {
         return uniqid(sprintf("%s.%s", $this->namespace, $subnamespace), true);
     }
 
+    /**
+     * @return Moip\Resource\Payment
+     */
     public function createPaymentWithCreditCard(SimpleOrder $so, SimpleCreditCardPayment $scp)
     {
-        $mOrderId = $this->createOrder($so);
-        $mOrder = new Orders($this->moip);
-        $mOrder = $mOrder->get($mOrderId);
+        $mOrder = $this->createOrder($so);
 
         $payment = $mOrder
             ->payments()
@@ -114,26 +120,62 @@ class SimplePay
             ->setStatementDescriptor($scp->statementDescriptor);
         
         $p = $payment->execute();
-        return $p->getId();
+        return $p;
     }
 
+    /**
+     * @return Moip\Resource\Payment
+     */
     public function createPaymentWithBoleto(SimpleOrder $so, SimpleBoletoPayment $sbp)
     {
-        $mOrderId = $this->createOrder($so);
-        $mOrder = new Orders($this->moip);
-        $mOrder = $mOrder->get($mOrderId);
+        $mOrder = $this->createOrder($so);
 
         $payment = $mOrder
             ->payments()
             ->setBoleto($sbp->expirationDate->format('Y-m-d'), $sbp->logoUri, $sbp->instructions);
         
         $p = $payment->execute();
-        return $p->getId();
+        return $p;
     }
 
-    private function createMoipHolder(Holder $h)
+    /**
+     * @return Moip\Resource\Refund
+     */
+    public function refundPaymentWithCreditCard(string $paymentId)
+    {
+        return $this
+            ->retrievePayment($paymentId)
+            ->refunds()
+            ->creditCardFull();
+    }
+
+     /**
+     * @return Moip\Resource\Refund
+     */
+    public function refundPaymentWithBankAccount(string $paymentId, BankAccount $ba, string $customerId)
     {
 
+        $mCustomer = $this->retrieveCustomer($customerId);
+
+        return $this
+            ->retrievePayment($paymentId)
+            ->refunds()
+            ->bankAccountFull(
+                MoipBankAcount::CHECKING,
+                $ba->bankNumber,
+                $ba->agencyNumber,
+                $ba->agencyCheckNumber,
+                $ba->accountNumber,
+                $ba->accountCheckNumber,
+                $mCustomer
+            );
+    }
+
+    /**
+     * @return Moip\Resource\MoipHolder
+     */
+    private function createMoipHolder(Holder $h)
+    {
         $p = $h->phone;
         $addr = $h->address;
 
@@ -155,5 +197,38 @@ class SimplePay
                 $addr->country
             );
         return $mHolder;
+    }
+
+    /**
+     * @return Moip\Resource\Customer
+     */
+    public function retrieveCustomer(string $customerId)
+    {
+        return $this
+            ->moip
+            ->customers()
+            ->get($customerId);
+    }
+
+    /**
+     * @return Moip\Resource\Orders
+     */
+    public function retrieveOrder(string $orderId)
+    {
+        return $this
+            ->moip
+            ->orders()
+            ->get($orderId);
+    }
+
+    /**
+     * return Moip\Resource\Payment
+     */
+    public function retrievePayment(string $paymentId)
+    {
+        return $this
+            ->moip
+            ->payments()
+            ->get($paymentId);
     }
 }
