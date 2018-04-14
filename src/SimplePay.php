@@ -3,7 +3,6 @@
 namespace Mdojr\SimplePay;
 
 use Moip\Moip;
-use Moip\Auth\OAuth;
 use Mdojr\SimplePay\Customer\SimpleCustomer;
 use Mdojr\SimplePay\Customer\SimpleOrder;
 use Mdojr\SimplePay\Customer\SimplePayment;
