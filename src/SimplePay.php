@@ -39,7 +39,7 @@ class SimplePay
         $mCustomer = $this
             ->moip
             ->customers()
-            ->setOwnId($this->uniqIdentifier('customer'))
+            ->setOwnId($this->uniqIdentifier('customer.' . $sc->ownId))
             ->setFullname($sc->fullname)
             ->setEmail($sc->email)
             ->setBirthDate($sc->birthdate->format('Y-m-d'))
@@ -83,7 +83,7 @@ class SimplePay
         $mOrder = $this
             ->moip
             ->orders()
-            ->setOwnId($this->uniqIdentifier('order'))
+            ->setOwnId($this->uniqIdentifier('order.'. $so->ownId))
             ->setShippingAmount($so->shippingAmount)
             ->setAddition($so->addition)
             ->setDiscount($so->discount)
@@ -148,12 +148,11 @@ class SimplePay
             ->creditCardFull();
     }
 
-     /**
-     * @return Moip\Resource\Refund
-     */
+    /**
+    * @return Moip\Resource\Refund
+    */
     public function refundPaymentWithBankAccount(string $paymentId, BankAccount $ba, string $customerId)
     {
-
         $mCustomer = $this->retrieveCustomer($customerId);
 
         return $this
